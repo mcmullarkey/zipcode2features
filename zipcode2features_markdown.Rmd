@@ -166,6 +166,8 @@ if(!require(MOTE)){install.packages('MOTE')}
 library(MOTE)
 if(!require(zipcodeR)){install.packages('zipcodeR')}
 library(zipcodeR)
+if(!require(openintro)){install.packages('openintro')}
+library(openintro)
 
 ## Let's set our number of cores for this document (May differ across computers)
 
@@ -179,42 +181,194 @@ registerDoMC(cores = 7)
 
 # Have to skp 3 rows and assign no names since the Qualtrics reads the data in super weird
 
-zip2feat_data <- read_csv("zipcode2features_example_data")
+zip2feat_data <- read_csv("zipcode2features_example_data.csv")
 
-# Now reading in only the first row and using the janitor package to make the non-named qualtrics variables more tidy
+glimpse(zip2feat_data)
 
-cg_baseline_names <- read_csv("college_goals_fall_2020_baseline_choice_text.csv") %>% 
-  slice(1) %>% 
-  names() %>% 
-  make_clean_names()
-
-# Assigning these values to names of the baseline data
-
-names(cg_baseline) <- cg_baseline_names  
-
-glimpse(cg_baseline)
-
-## Reading in the follow-up data
-
-cg_follow_up <- read_csv("college_goals_fall_2020_follow_up_choice_text.csv", skip = 3, col_names = F)
-
-cg_follow_up_names <- read_csv("college_goals_fall_2020_follow_up_choice_text.csv") %>% 
-  slice(1) %>% 
-  names() %>% 
-  make_clean_names()
-
-names(cg_follow_up) <- cg_follow_up_names  
-
-glimpse(cg_follow_up)
 
 ```
 
-## Including Plots
+```{r figure out reverse zip code search}
 
-You can also embed plots, for example:
+zip_code_initial_features <- reverse_zipcode(zip2feat_data$zip_code)
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+## Let's try reading in some county level data
+
+# devtools::install_github("asmae-toumi/MSVI")
+library(MSVI)
+
+## Let's check AHRF data file
+
+ahrf %>% 
+  filter(year_represented_by_variable == "2016") %>% 
+  group_by(state, variable) %>% 
+  count()
+
+glimpse(ahrf)
+
+ahrf %>% 
+  group_by(category) %>% 
+  count()
+
+## Let's try to join clincians per 100k county population based on county, this doesn't work! All NAs
+
+zip_code_updated_ahrf_features <- zip_code_initial_features %>% 
+  left_join(ahrf, by = "county")
+
+glimpse(zip_code_updated_ahrf_features)
+
+## Checking the county variable in initial features
+
+zip_code_initial_features %>% 
+  group_by(county) %>% 
+  tally()
+
+## When we do this, no rows, so the matching across dataframes won't work by default
+
+ahrf %>%
+  filter(county %in% zip_code_initial_features$county) %>% 
+  group_by(county) %>% 
+  tally()
+
+zip_code_initial_features %>%
+  filter(county %in% ahrf$county) %>% 
+  group_by(county) %>% 
+  tally()
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+
+## Looking at the different counties in initial data
+
+zip_code_initial_features %>% 
+  group_by(county) %>% 
+  tally()
+
+## Looking for something like those counties in the ahrf data
+
+ahrf %>% 
+  filter(str_detect(county, "Allegheny")) %>% 
+  print()
+
+## Creating a new county variable in initial data to match the county variable in the ahrf
+
+zip_code_updated_ahrf_style_county <- zip_code_initial_features %>% 
+  mutate(county_ahrf = str_replace(county, " County","")) %>% 
+  print()
+
+```
+
+```{r}
+
+## Ok, can we match and get accurate data based off of the is new county variable?
+
+zip_code_updated_ahrf_features <- zip_code_updated_ahrf_style_county %>% 
+  left_join(ahrf, by = c("county_ahrf" = "county"))
+
+## We get non NA values if we do this join
+
+glimpse(zip_code_updated_ahrf_features)
+
+```
+
+```{r}
+
+## Let's write a test to make sure the values we're getting from the AHRF data are correctly matched to the initial features?
+
+## Visual inspection shows that across dataframes, at least one county is matched to the correct state
+
+zip_code_updated_ahrf_features %>% 
+  filter(county_ahrf == "Allegheny") %>% 
+  print()
+
+## Can we figure out programmatically if across all the counties that match across dataframes, do all of those also match on state?
+
+ahrf_in_initial_zip_features <- ahrf %>%
+  filter(county %in% zip_code_updated_ahrf_features$county_ahrf) %>% 
+  dplyr::select(state, county) %>%
+  distinct(county, .keep_all = T) %>% 
+  arrange(county) %>% 
+  print()
+
+zip_code_initial_features_reduced_for_state_test <- zip_code_updated_ahrf_features %>% 
+  filter(county_ahrf %in% ahrf$county) %>% 
+  dplyr::select(state = state.x, county = county_ahrf) %>%
+  mutate(state = abbr2state(state)) %>% 
+  distinct(county, .keep_all = T) %>% 
+  arrange(county) %>% 
+  print()
+
+diffdf(ahrf_in_initial_zip_features, zip_code_initial_features_reduced_for_state_test)
+
+```
+
+```{r}
+
+## Doing visual inspection based on the differences we observe, and we see that our mistmatches are due to having the same county name in different states
+
+ahrf_in_initial_zip_features %>% 
+  slice(7,10,12,15,16,17,18,25,28,33) %>% 
+  bind_cols(zip_code_initial_features_reduced_for_state_test %>% slice(7,10,12,15,16,17,18,25,28,33))
+
+```
+
+```{r}
+## Ok, given that let's join based not only on county, but also on state
+
+## Let's create a state variable that matches the AHRF data in our initial feature set
+
+zip_code_initial_features_county_and_state_ahrf <- zip_code_updated_ahrf_features %>%
+  mutate(state_ahrf = abbr2state(state.x))
+
+## Now let's create a function that removes the .y for variables that collide based on having the same names due to the earlier join creating different data/columns since some of the counties were mismatched/wrong
+
+remove_dot_y_at_var_end <- function(.data){
+  
+  non_dot_y_vars <- .data %>% 
+    dplyr::select(-ends_with(".y"))
+
+  dot_y_vars <- .data %>%
+    dplyr::select(ends_with(".y")) %>%
+    rename_with(~str_replace(.x, "\\.y",""))
+  
+  .data <- non_dot_y_vars %>% 
+    bind_cols(dot_y_vars)
+
+}
+
+zip_code_updated_ahrf_features <- zip_code_initial_features_county_and_state_ahrf %>% 
+  left_join(ahrf, by = c("county_ahrf" = "county", "state_ahrf" = "state")) %>% 
+  dplyr::select(-ends_with(".x")) %>% 
+  distinct(zipcode, .keep_all = T) %>% 
+  remove_dot_y_at_var_end()
+
+glimpse(zip_code_updated_ahrf_features)
+
+```
+
+```{r}
+
+## Run the same test again to see if we've fixed the problem
+
+## Can we figure out programmatically if across all the counties that match across dataframes, do all of those also match on state? Now they do!
+
+ahrf_in_initial_zip_features <- ahrf %>%
+  filter(county %in% zip_code_updated_ahrf_features$county_ahrf) %>% 
+  dplyr::select(state, county) %>%
+  distinct(county, .keep_all = T) %>% 
+  arrange(county, state) %>% 
+  print()
+
+zip_code_initial_features_reduced_for_state_test <- zip_code_updated_ahrf_features %>% 
+  filter(county_ahrf %in% ahrf$county) %>% 
+  dplyr::select(state, county = county_ahrf) %>%
+  distinct(county, .keep_all = T) %>% 
+  arrange(county, state) %>% 
+  print()
+
+diffdf(ahrf_in_initial_zip_features, zip_code_initial_features_reduced_for_state_test)
+
+
+```
+
