@@ -1,0 +1,220 @@
+---
+title: "zipcode2features"
+author: "Michael Mullarkey"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 5
+    toc_float:
+      collapsed: no
+      smooth_scroll: no
+geometry: margin=0.50in
+---
+
+```{r setup, include=FALSE, cache = FALSE}
+require("knitr")
+## setting working directory
+opts_knit$set(root.dir = "/Users/Carbonite/Documents/Github_R/zipcode2features") ## Will need to change across computers
+knitr::opts_chunk$set(echo = TRUE, tidy = TRUE, warning = FALSE, message = FALSE, include = FALSE)
+
+```
+
+```{r loading packages}
+
+if(!require(tidymodels)){install.packages('tidymodels')}
+library(tidymodels)
+if(!require(readr)){install.packages('readr')}
+library(readr)
+if(!require(broom.mixed)){install.packages('broom.mixed')}
+library(broom.mixed)
+if(!require(tidyverse)){install.packages('tidyverse')}
+library(tidyverse)
+if(!require(nycflights13)){install.packages('nycflights13')}
+library(nycflights13)
+if(!require(skimr)){install.packages('skimr')}
+library(skimr)
+if(!require(modeldata)){install.packages('modeldata')}
+library(modeldata)
+if(!require(ranger)){install.packages('ranger')}
+library(ranger)
+if(!require(vip)){install.packages('vip')}
+library(vip)
+if(!require(gt)){install.packages('gt')}
+library(gt)
+if(!require(ggthemes)){install.packages('ggthemes')}
+library(ggthemes)
+if(!require(xgboost)){install.packages('xgboost')}
+library(xgboost)
+if(!require(keras)){install.packages('keras')}
+library(keras)
+if(!require(furrr)){install.packages('furrr')}
+library(furrr)
+if(!require(kernlab)){install.packages('kernlab')}
+library(kernlab)
+if(!require(mlbench)){install.packages('mlbench')}
+library(mlbench)
+if(!require(scales)){install.packages('scales')}
+library(scales)
+if(!require(tidyposterior)){install.packages('tidyposterior')}
+library(tidyposterior)
+if(!require(rstanarm)){install.packages('rstanarm')}
+library(rstanarm)
+if(!require(tictoc)){install.packages('tictoc')}
+library(tictoc)
+# library(devtools)
+# devtools::install_github("abresler/nbastatR")
+library(nbastatR)
+if(!require(heatmaply)){install.packages('heatmaply')}
+library(heatmaply)
+if(!require(ggmosaic)){install.packages('ggmosaic')}
+library(ggmosaic)
+if(!require(splines)){install.packages('splines')}
+library(splines)
+if(!require(doMC)){install.packages('doMC')}
+library(doMC)
+if(!require(glue)){install.packages('glue')}
+library(glue)
+if(!require(stacks)){install.packages('stacks')}
+library(stacks)
+if(!require(janitor)){install.packages('janitor')}
+library(janitor)
+if(!require(future)){install.packages('future')}
+library(future)
+if(!require(reticulate)){install.packages('reticulate')}
+library(reticulate)
+if(!require(furrr)){install.packages('furrr')}
+library(furrr)
+if(!require(tuber)){install.packages('tuber')}
+library(tuber)
+if(!require(tidytext)){install.packages('tidytext')}
+library(tidytext)
+if(!require(topicmodels)){install.packages('topicmodels')}
+library(topicmodels)
+if(!require(wordcloud)){install.packages('wordcloud')}
+library(wordcloud)
+if(!require(reshape2)){install.packages('reshape2')}
+library(reshape2)
+if(!require(youtubecaption)){install.packages('youtubecaption')}
+library(youtubecaption)
+if(!require(textrecipes)){install.packages('textrecipes')}
+library(textrecipes)
+if(!require(stopwords)){install.packages('stopwords')}
+library(stopwords)
+if(!require(hardhat)){install.packages('hardhat')}
+library(hardhat)
+if(!require(poissonreg)){install.packages('poissonreg')}
+library(poissonreg)
+if(!require(remotes)){install.packages('remotes')}
+library(remotes)
+# remotes::install_github('jorvlan/raincloudplots')
+library(raincloudplots)
+if(!require(DescTools)){install.packages('DescTools')}
+library(DescTools)
+if(!require(readxl)){install.packages('readxl')}
+library(readxl)
+if(!require(modeest)){install.packages('modeest')}
+library(modeest)
+if(!require(psych)){install.packages('psych')}
+library(psych)
+# install_local("DTVEM_1.0010.tar.gz") # http://www.nicholasjacobson.com/project/dtvem/
+library(DTVEM)
+# Loading DTVEM dependencies
+if(!require(mgcv)){install.packages('mgcv')}
+library(mgcv)
+if(!require(zoo)){install.packages('zoo')}
+library(zoo)
+if(!require(OpenMx)){install.packages('OpenMx')}
+library(OpenMx)
+if(!require(imputeTS)){install.packages('imputeTS')}
+library(imputeTS)
+if(!require(tfdatasets)){install.packages('tfdatasets')}
+library(tfdatasets)
+if(!require(rlang)){install.packages('rlang')}
+library(rlang)
+if(!require(RANN)){install.packages('RANN')}
+library(RANN)
+if(!require(baguette)){install.packages('baguette')}
+library(baguette)
+if(!require(rules)){install.packages('rules')}
+library(rules)
+if(!require(timetk)){install.packages('timetk')}
+library(timetk)
+if(!require(tidyquant)){install.packages('tidyquant')}
+library(tidyquant)
+if(!require(tsibble)){install.packages('tsibble')}
+library(tsibble)
+if(!require(feasts)){install.packages('feasts')}
+library(feasts)
+if(!require(dtw)){install.packages('dtw')}
+library(dtw)
+if(!require(parallelDist)){install.packages('parallelDist')}
+library(parallelDist)
+if(!require(pheatmap)){install.packages('pheatmap')}
+library(pheatmap)
+if(!require(diffdf)){install.packages('diffdf')}
+library(diffdf)
+if(!require(tableone)){install.packages('tableone')}
+library(tableone)
+if(!require(tableone)){install.packages('tableone')}
+library(tableone)
+if(!require(corrr)){install.packages('corrr')}
+library(corrr)
+if(!require(Amelia)){install.packages('Amelia')}
+library(Amelia)
+if(!require(MOTE)){install.packages('MOTE')}
+library(MOTE)
+if(!require(zipcodeR)){install.packages('zipcodeR')}
+library(zipcodeR)
+
+## Let's set our number of cores for this document (May differ across computers)
+
+registerDoMC(cores = 7)
+
+```
+
+```{r reading in the data}
+
+## Reading in baseline data
+
+# Have to skp 3 rows and assign no names since the Qualtrics reads the data in super weird
+
+zip2feat_data <- read_csv("zipcode2features_example_data")
+
+# Now reading in only the first row and using the janitor package to make the non-named qualtrics variables more tidy
+
+cg_baseline_names <- read_csv("college_goals_fall_2020_baseline_choice_text.csv") %>% 
+  slice(1) %>% 
+  names() %>% 
+  make_clean_names()
+
+# Assigning these values to names of the baseline data
+
+names(cg_baseline) <- cg_baseline_names  
+
+glimpse(cg_baseline)
+
+## Reading in the follow-up data
+
+cg_follow_up <- read_csv("college_goals_fall_2020_follow_up_choice_text.csv", skip = 3, col_names = F)
+
+cg_follow_up_names <- read_csv("college_goals_fall_2020_follow_up_choice_text.csv") %>% 
+  slice(1) %>% 
+  names() %>% 
+  make_clean_names()
+
+names(cg_follow_up) <- cg_follow_up_names  
+
+glimpse(cg_follow_up)
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
