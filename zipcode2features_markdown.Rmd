@@ -539,8 +539,8 @@ map(names_predictors, ~{
 
 pred_intern_with_zip_rec <-
   recipe(screen_positive_for_internalizing_disorder ~ ., data = minimal_zip_train) %>% 
-  step_knnimpute(all_predictors()) %>% 
-  step_nzv(all_predictors()) %>% 
+  step_bagimpute(all_predictors()) %>% 
+  step_nzv(all_predictors()) 
 
 ## Creating random forest model
 
