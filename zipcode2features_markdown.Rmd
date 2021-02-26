@@ -497,7 +497,7 @@ glimpse(initial_features_engineered)
 ```
 ```{r creating training and testing split}
 
-zip_initial_split <- initial_split(initial_features_engineered, prop = 3/4, strata = "screen_positive_for_internalizing_disorder")
+zip_initial_split <- initial_split(initial_features_engineered, prop = 0.75, strata = "screen_positive_for_internalizing_disorder")
 
 minimal_zip_train <- training(zip_initial_split)
 minimal_zip_test<- testing(zip_initial_split)
@@ -535,11 +535,50 @@ map(names_predictors, ~{
 
 ```{r creating predictive model for this data}
 
+## Creating preprocessng recipe
+
 pred_intern_with_zip_rec <-
   recipe(screen_positive_for_internalizing_disorder ~ ., data = minimal_zip_train) %>% 
   step_knnimpute(all_predictors()) %>% 
-  step_BoxCox(all_numeric()) %>% 
-  step_normalize(all_numeric())
+  step_nzv(all_predictors()) %>% 
+
+## Creating random forest model
+
+zip_rf_mod <- rand_forest(trees = 1000) %>% 
+  set_engine("ranger", importance = "impurity") %>% 
+  set_mode("classification")
+
+## Creating workflow
+
+zip_rf_wf <-
+  workflow() %>% 
+  add_recipe(pred_intern_with_zip_rec) %>% 
+  add_model(zip_rf_mod)
+
+## Creating folds and running resampling
+
+registerDoMC(cores = 7)
+
+set.seed(33)
+folds_zip_pred <- vfold_cv(minimal_zip_train, v = 10, repeats = 5, strata = "screen_positive_for_internalizing_disorder")
+
+## Run the CV models here
+keep_pred <- control_resamples(save_pred = TRUE)
+tic()
+set.seed(33)
+rf_zip_rs <- 
+  zip_rf_wf %>% 
+  fit_resamples(folds_zip_pred, control = keep_pred)
+toc()
+rf_zip_rs
+
+rf_zip_rs$.notes
+
+## Get the AUC values here
+
+auc <- rf_zip_rs %>% 
+  collect_predictions(summarize = TRUE) %>% 
+  roc_auc(truth = screen_positive_for_internalizing_disorder, .estimate = .pred_1)
 
 ```
 
