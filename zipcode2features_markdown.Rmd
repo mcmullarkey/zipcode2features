@@ -475,7 +475,7 @@ glimpse(zip_code_updated_project_implicit)
 
 initial_features_engineered <- zip2feat_data %>% 
   left_join(zip_code_updated_project_implicit, by = c("zip_code" = "zipcode")) %>% 
-  dplyr::select(b_idas_mean, population:median_household_income,clinician_count,clinicians_per_100k_county_population,
+  dplyr::select(zip_code, state, b_idas_mean, population:median_household_income,clinician_count,clinicians_per_100k_county_population,
                 clinicians_per_100k_state_population,hpsa_designated_area:t_diff_mean_white_and_black) %>% 
   mutate(screen_positive_for_internalizing_disorder = factor(case_when(
     
@@ -489,18 +489,35 @@ initial_features_engineered <- zip2feat_data %>%
   dplyr::select(-b_idas_mean,twhite_0to10_max,twhite_0to10_min,tblack_0to10_max,tblack_0to10_min) %>% 
   na.omit()
 
+## Let's look at distributions of outcome and units used for feature engineering
+
 initial_features_engineered %>% 
   group_by(screen_positive_for_internalizing_disorder) %>% 
   tally()
 
-glimpse(initial_features_engineered)
+initial_features_engineered %>% 
+  group_by(zip_code) %>% 
+  tally()
+
+initial_features_engineered %>% 
+  group_by(state) %>% 
+  tally()
 
 ## Checking for NA values
 
 is.na(initial_features_engineered) %>%
   colSums()
 
+## Removing zip code and state as they can't be used directly in the modeling process
+
+initial_features_engineered <- initial_features_engineered %>% 
+  dplyr::select(-zip_code, -state)
+
+glimpse(initial_features_engineered)
+
 ```
+
+
 ```{r creating training and testing split}
 
 zip_initial_split <- initial_split(initial_features_engineered, prop = 0.75, strata = "screen_positive_for_internalizing_disorder")
@@ -576,7 +593,6 @@ rf_zip_rs <-
   zip_rf_wf %>% 
   fit_resamples(folds_zip_pred, control = keep_pred)
 toc()
-rf_zip_rs$.notes
 
 ## Get the AUC values here
 
