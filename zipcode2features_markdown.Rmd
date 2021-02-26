@@ -170,6 +170,8 @@ if(!require(openintro)){install.packages('openintro')}
 library(openintro)
 if(!require(readxl)){install.packages('readxl')}
 library(readxl)
+if(!require(haven)){install.packages('haven')}
+library(haven)
 
 ## Let's set our number of cores for this document (May differ across computers)
 
@@ -239,7 +241,7 @@ zip_code_initial_features %>%
 
 ```
 
-```{r}
+```{r creating a county variable that can match across data frames}
 
 ## Looking at the different counties in initial data
 
@@ -261,7 +263,7 @@ zip_code_updated_ahrf_style_county <- zip_code_initial_features %>%
 
 ```
 
-```{r}
+```{r matching just on county and ending up with non na values}
 
 ## Ok, can we match and get accurate data based off of the is new county variable?
 
@@ -274,7 +276,7 @@ glimpse(zip_code_updated_ahrf_features)
 
 ```
 
-```{r}
+```{r running a test to see whether the data matching was accurate and discovering not so much}
 
 ## Let's write a test to make sure the values we're getting from the AHRF data are correctly matched to the initial features?
 
@@ -305,7 +307,7 @@ diffdf(ahrf_in_initial_zip_features, zip_code_initial_features_reduced_for_state
 
 ```
 
-```{r}
+```{r figuring out that the issue is having the same county name in different states}
 
 ## Doing visual inspection based on the differences we observe, and we see that our mistmatches are due to having the same county name in different states
 
@@ -315,7 +317,7 @@ ahrf_in_initial_zip_features %>%
 
 ```
 
-```{r}
+```{r fixing that state county issue and demonstrating a function that can undo the name collisions we have based on an earlier join}
 ## Ok, given that let's join based not only on county, but also on state
 
 ## Let's create a state variable that matches the AHRF data in our initial feature set
@@ -349,7 +351,7 @@ glimpse(zip_code_updated_ahrf_features)
 
 ```
 
-```{r}
+```{r running the accuraacy test again to confirm we have fixed that problem}
 
 ## Run the same test again to see if we've fixed the problem
 
@@ -373,7 +375,7 @@ diffdf(ahrf_in_initial_zip_features, zip_code_initial_features_reduced_for_state
 
 
 ```
-```{r}
+```{r integrating whether there is a mental health care provider shortage into our data}
 
 ## Now we read in the mental healthcare shortage provider data
 
@@ -422,8 +424,46 @@ zip_code_updated_hpsa <- zip_code_updated_ahrf_features %>%
 
 ```
 
-```{r }
+```{r integrating county level data on explicit feeling thermometers toward white and black people from project implicit}
 
+proj_implicit <- read_sav("Race.IAT.public.2020.sav") %>% 
+  clean_names()
+
+glimpse(proj_implicit)
+
+proj_implicit_reduced <- proj_implicit %>% 
+  dplyr::select(state, twhite_0to10,tblack_0to10, d_biep_white_good_all) %>% 
+  mutate(state = as.character(state),
+         twhite_0to10 = as.numeric(twhite_0to10),
+         tblack_0to10 = as.numeric(tblack_0to10),
+         d_biep_white_good_all = as.numeric(d_biep_white_good_all), 
+    state = case_when(
+    
+    state == "" ~ NA_character_,
+    TRUE ~ state
+    
+  )) %>% 
+  filter(!is.na(state) & !is.na(twhite_0to10) & !is.na(tblack_0to10) & !is.na(d_biep_white_good_all)) %>% 
+  group_by(state) %>% 
+  mutate(across(
+    .cols = is.numeric,
+    .fns = list(mean = mean, sd = sd, median = median, max = max, min = min, kurtosis = kurtosi, skew = skew),
+    .names = "{col}_{fn}")) %>%
+  distinct(state, .keep_all = T) %>% 
+  dplyr::select(-twhite_0to10,-tblack_0to10) %>% 
+  mutate(t_diff_mean_white_and_black = twhite_0to10_mean - tblack_0to10_mean) %>% 
+  mutate(state = abbr2state(state)) %>% # Had to do this since abbreviations weren't matching up
+  arrange(state) %>% 
+  ungroup()
+
+glimpse(proj_implicit_reduced)
+
+## Now merging with features already engineered
+
+zip_code_updated_project_implicit <- zip_code_updated_hpsa %>% 
+  left_join(proj_implicit_reduced, by = ("state" = "state"))
+
+glimpse(zip_code_updated_project_implicit)
 
 ```
 
