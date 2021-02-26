@@ -467,6 +467,82 @@ glimpse(zip_code_updated_project_implicit)
 
 ```
 
+```{r merging features engineered so far back with original data and creating the screen positive for internalizing disorder variable}
+
+## Honestly just curious where we're at with pretty minimal predictors re: our predictive power
+
+## Let's merge with our original example data and create scores for screening positive for an internalizing disorder or not
+
+initial_features_engineered <- zip2feat_data %>% 
+  left_join(zip_code_updated_project_implicit, by = c("zip_code" = "zipcode")) %>% 
+  dplyr::select(b_idas_mean, population:median_household_income,clinician_count,clinicians_per_100k_county_population,
+                clinicians_per_100k_state_population,hpsa_designated_area:t_diff_mean_white_and_black) %>% 
+  mutate(screen_positive_for_internalizing_disorder = factor(case_when(
+    
+    b_idas_mean >= 2.55 ~ "Yes",
+    b_idas_mean < 2.55 ~ "No",
+    TRUE ~ NA_character_
+    
+  )
+  )) %>% 
+  filter(!is.na(screen_positive_for_internalizing_disorder)) %>% 
+  dplyr::select(-b_idas_mean)
+
+initial_features_engineered %>% 
+  group_by(screen_positive_for_internalizing_disorder) %>% 
+  tally()
+
+glimpse(initial_features_engineered)
+
+```
+```{r creating training and testing split}
+
+zip_initial_split <- initial_split(initial_features_engineered, prop = 3/4, strata = "screen_positive_for_internalizing_disorder")
+
+minimal_zip_train <- training(zip_initial_split)
+minimal_zip_test<- testing(zip_initial_split)
+
+```
+
+
+```{r visualizing distributions of predictors}
+
+names_predictors <- minimal_zip_train %>% 
+  dplyr::select(is.numeric) %>% 
+  names()
+
+map(names_predictors, ~{
+  
+  minimal_zip_train %>% 
+  ggplot(aes(x = .data[[.x]])) +
+  geom_density(alpha = 0.2)
+  
+})
+
+```
+
+```{r visualizing distributions relative to outcome}
+
+map(names_predictors, ~{
+  
+  minimal_zip_train %>% 
+  ggplot(aes(x = screen_positive_for_internalizing_disorder, y = .data[[.x]])) +
+  geom_point(alpha = 0.2, position = "jitter")
+  
+})
+
+```
+
+```{r creating predictive model for this data}
+
+pred_intern_with_zip_rec <-
+  recipe(screen_positive_for_internalizing_disorder ~ ., data = minimal_zip_train) %>% 
+  step_knnimpute(all_predictors()) %>% 
+  step_BoxCox(all_numeric()) %>% 
+  step_normalize(all_numeric())
+
+```
+
 
 ```{r}
 
