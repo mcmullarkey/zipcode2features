@@ -371,4 +371,13 @@ diffdf(ahrf_in_initial_zip_features, zip_code_initial_features_reduced_for_state
 
 
 ```
+```{r}
+
+## Future dataset resources
+
+# https://piktochart.com/blog/100-data-sets/
+
+# https://www.freecodecamp.org/news/https-medium-freecodecamp-org-best-free-open-data-sources-anyone-can-use-a65b514b0f2d/
+
+```
 
