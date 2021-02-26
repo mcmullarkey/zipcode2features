@@ -380,24 +380,50 @@ diffdf(ahrf_in_initial_zip_features, zip_code_initial_features_reduced_for_state
 hpsa_mh_data <- read_excel("hpsa_mh_data_feb_2021.xlsx") %>% 
   clean_names()
 
-## We see that county and state are in the same column
+## We see that this isn't 5 digit zipcode, also contains other specifiers
 
 glimpse(hpsa_mh_data)
 
-## We'll want to separate those into different columns https://tidyr.tidyverse.org/reference/separate.html
+## We'll want to separate those into different columns and drop the extra info we can't use https://tidyr.tidyverse.org/reference/separate.html
 
-hpsa_mh_data_sep_county_state <- hpsa_mh_data %>% 
-  separate(county, c("county","filler","state")) %>% 
+hpsa_mh_data_zipcode <- hpsa_mh_data %>% 
+  separate(zip, c("zipcode","filler")) %>% 
   dplyr::select(-filler) %>% 
   print()
 
-## Buy when we sort by county we have to account for counties with multiple separate words as their names, but it's actually worse than that. Multiple HPSAs per county
+## Now want to see if there are/how many redundant zip codes there are
 
-hpsa_mh_data_sep_county_state %>% 
-  group_by(county, hpsa_id) %>% 
+hpsa_mh_data_zipcode_mean_hpsa %>% 
+  group_by(zipcode) %>% 
   tally() %>% 
+  filter(n >=2)
+
+## There are a decent number of duplicate zipcodes in this data now, so we're going to take some means across zipcodes
+
+## We have to average hpsa_score, figure out what we want from hpsa_status/rural status when zip codes disagree
+
+hpsa_mh_data_zipcode_aggregate_hpsa <- hpsa_mh_data_zipcode %>% 
+  group_by(zipcode) %>% 
+  mutate(mean_hpsa_score = mean(hpsa_score, na.rm = T)) %>% 
+  ungroup() %>% 
+  distinct(zipcode, .keep_all = T) %>% 
+  dplyr::select(zipcode, mean_hpsa_score)
+
+## Can now merge this with our initial features + AHRF data
+
+zip_code_updated_hpsa <- zip_code_updated_ahrf_features %>% 
+  left_join(hpsa_mh_data_zipcode_aggregate_hpsa, by = "zipcode") %>% 
+  mutate(hpsa_designated_area = case_when(
+    
+    is.na(mean_hpsa_score) ~ "Not Designated",
+    TRUE ~ "Designated"
+)) %>% 
   print()
-  
+
+```
+
+```{r }
+
 
 ```
 
