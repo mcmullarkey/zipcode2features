@@ -486,13 +486,19 @@ initial_features_engineered <- zip2feat_data %>%
   )
   )) %>% 
   filter(!is.na(screen_positive_for_internalizing_disorder)) %>% 
-  dplyr::select(-b_idas_mean)
+  dplyr::select(-b_idas_mean,twhite_0to10_max,twhite_0to10_min,tblack_0to10_max,tblack_0to10_min) %>% 
+  na.omit()
 
 initial_features_engineered %>% 
   group_by(screen_positive_for_internalizing_disorder) %>% 
   tally()
 
 glimpse(initial_features_engineered)
+
+## Checking for NA values
+
+is.na(initial_features_engineered) %>%
+  colSums()
 
 ```
 ```{r creating training and testing split}
@@ -538,9 +544,9 @@ map(names_predictors, ~{
 ## Creating preprocessng recipe
 
 pred_intern_with_zip_rec <-
-  recipe(screen_positive_for_internalizing_disorder ~ ., data = minimal_zip_train) %>% 
-  step_bagimpute(all_predictors()) %>% 
-  step_nzv(all_predictors()) 
+  recipe(screen_positive_for_internalizing_disorder ~ ., data = minimal_zip_train)
+
+summary(pred_intern_with_zip_rec)
 
 ## Creating random forest model
 
@@ -560,7 +566,7 @@ zip_rf_wf <-
 registerDoMC(cores = 7)
 
 set.seed(33)
-folds_zip_pred <- vfold_cv(minimal_zip_train, v = 10, repeats = 5, strata = "screen_positive_for_internalizing_disorder")
+folds_zip_pred <- vfold_cv(minimal_zip_train, v = 10, repeats = 5, strata = screen_positive_for_internalizing_disorder)
 
 ## Run the CV models here
 keep_pred <- control_resamples(save_pred = TRUE)
@@ -570,15 +576,14 @@ rf_zip_rs <-
   zip_rf_wf %>% 
   fit_resamples(folds_zip_pred, control = keep_pred)
 toc()
-rf_zip_rs
-
 rf_zip_rs$.notes
 
 ## Get the AUC values here
 
 auc <- rf_zip_rs %>% 
   collect_predictions(summarize = TRUE) %>% 
-  roc_auc(truth = screen_positive_for_internalizing_disorder, .estimate = .pred_1)
+  roc_auc(truth = screen_positive_for_internalizing_disorder, .estimate = .pred_Yes) %>% 
+  print()
 
 ```
 
