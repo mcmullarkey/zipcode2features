@@ -168,6 +168,8 @@ if(!require(zipcodeR)){install.packages('zipcodeR')}
 library(zipcodeR)
 if(!require(openintro)){install.packages('openintro')}
 library(openintro)
+if(!require(readxl)){install.packages('readxl')}
+library(readxl)
 
 ## Let's set our number of cores for this document (May differ across computers)
 
@@ -371,6 +373,35 @@ diffdf(ahrf_in_initial_zip_features, zip_code_initial_features_reduced_for_state
 
 
 ```
+```{r}
+
+## Now we read in the mental healthcare shortage provider data
+
+hpsa_mh_data <- read_excel("hpsa_mh_data_feb_2021.xlsx") %>% 
+  clean_names()
+
+## We see that county and state are in the same column
+
+glimpse(hpsa_mh_data)
+
+## We'll want to separate those into different columns https://tidyr.tidyverse.org/reference/separate.html
+
+hpsa_mh_data_sep_county_state <- hpsa_mh_data %>% 
+  separate(county, c("county","filler","state")) %>% 
+  dplyr::select(-filler) %>% 
+  print()
+
+## Buy when we sort by county we have to account for counties with multiple separate words as their names, but it's actually worse than that. Multiple HPSAs per county
+
+hpsa_mh_data_sep_county_state %>% 
+  group_by(county, hpsa_id) %>% 
+  tally() %>% 
+  print()
+  
+
+```
+
+
 ```{r}
 
 ## Future dataset resources
